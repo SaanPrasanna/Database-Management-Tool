@@ -52,5 +52,47 @@ public class CustomComponents {
         separator.setPreferredSize(new Dimension(width, height));
         return separator;
     }
-    
+
+    public static class DatabaseListCellRenderer extends DefaultListCellRenderer {
+
+        private final ImageIcon mysqlIcon;
+        private final ImageIcon mssqlIcon;
+        private final ImageIcon oracleIcon;
+
+        public DatabaseListCellRenderer() {
+            mysqlIcon = CustomComponents.scaleIcon(
+                    new ImageIcon(getClass().getResource("/icons/mysql.png")), 20, 20);
+            mssqlIcon = CustomComponents.scaleIcon(
+                    new ImageIcon(getClass().getResource("/icons/mssql.png")), 20, 20);
+            oracleIcon = CustomComponents.scaleIcon(
+                    new ImageIcon(getClass().getResource("/icons/oracle.png")), 20, 20);
+        }
+
+        @Override
+        public Component getListCellRendererComponent(
+                JList<?> list,
+                Object value,
+                int index,
+                boolean isSelected,
+                boolean cellHasFocus) {
+
+            JLabel label = (JLabel) super.getListCellRendererComponent(
+                    list, value, index, isSelected, cellHasFocus);
+
+            String serverInfo = value.toString().toLowerCase();
+
+            if (serverInfo.startsWith("mysql")) {
+                label.setIcon(mysqlIcon);
+            } else if (serverInfo.startsWith("mssql")) {
+                label.setIcon(mssqlIcon);
+            } else if (serverInfo.startsWith("oracledb")) {
+                label.setIcon(oracleIcon);
+            }
+
+            label.setBorder(BorderFactory.createEmptyBorder(2, 5, 2, 5));
+
+            return label;
+        }
+    }
+
 }

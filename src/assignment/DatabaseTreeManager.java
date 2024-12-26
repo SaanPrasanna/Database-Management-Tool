@@ -26,11 +26,47 @@ public class DatabaseTreeManager {
     private JFrame mainFrame;
     private MainForm mainForm;
     private SQLManager currentSQLManager;
+    private ImageIcon serverIcon, databaseIcon, tableIcon, columnIcon;
 
     public DatabaseTreeManager(JPanel pnlExploreArea2, MainForm mainForm) {
         this.pnlExploreArea2 = pnlExploreArea2;
         this.mainForm = mainForm;
         initializeTreeView();
+
+        loadIcons();
+
+        dbTreeView.setCellRenderer(new DefaultTreeCellRenderer() {
+            @Override
+            public Component getTreeCellRendererComponent(JTree tree, Object value,
+                    boolean selected, boolean expanded, boolean leaf, int row, boolean hasFocus) {
+                super.getTreeCellRendererComponent(tree, value, selected, expanded, leaf, row, hasFocus);
+
+                DefaultMutableTreeNode node = (DefaultMutableTreeNode) value;
+                Object userObject = node.getUserObject();
+
+                if (userObject instanceof DatabaseInfo) {
+                    setIcon(databaseIcon);
+                } else if (userObject instanceof String) {
+                    DefaultMutableTreeNode parent = (DefaultMutableTreeNode) node.getParent();
+                    if (parent != null) {
+                        Object parentObject = parent.getUserObject();
+                        if (parentObject instanceof String && parent.getParent() != null
+                                && ((DefaultMutableTreeNode) parent.getParent()).getUserObject() instanceof DatabaseInfo) {
+                            // Column Node
+                            setIcon(columnIcon);
+                        } else if (parentObject instanceof DatabaseInfo) {
+                            // Table node
+                            setIcon(tableIcon);
+                        } else if (parent == tree.getModel().getRoot()) {
+                            // Server node
+                            setIcon(serverIcon);
+                        }
+                    }
+                }
+
+                return this;
+            }
+        });
 
         dbTreeView.addMouseListener(new MouseAdapter() {
             @Override
@@ -53,23 +89,34 @@ public class DatabaseTreeManager {
         });
     }
 
+    private void loadIcons() {
+        databaseIcon = CustomComponents.scaleIcon(new ImageIcon(getClass().getResource("/icons/database.png")), 16, 16);
+        tableIcon = CustomComponents.scaleIcon(new ImageIcon(getClass().getResource("/icons/table.png")), 16, 16);
+        serverIcon = CustomComponents.scaleIcon(new ImageIcon(getClass().getResource("/icons/server.png")), 16, 16);
+        columnIcon = CustomComponents.scaleIcon(new ImageIcon(getClass().getResource("/icons/column.png")), 16, 16);
+    }
+
     private void showContextMenu(DefaultMutableTreeNode node, int x, int y) {
         JPopupMenu popupMenu = new JPopupMenu();
 
         Object userObject = node.getUserObject();
 
         if (userObject instanceof String) {
+            JMenuItem refreshTable = new JMenuItem("Refresh Table");
             JMenuItem renameItem = new JMenuItem("Rename Table");
             JMenuItem deleteItem = new JMenuItem("Delete Table");
 
             // Table Context Button Actions
+            refreshTable.addActionListener(e -> refreshTable(node));
             renameItem.addActionListener(e -> manageTable(node, "rename"));
             deleteItem.addActionListener(e -> manageTable(node, "delete"));
 
+            popupMenu.add(refreshTable);
             popupMenu.add(renameItem);
             popupMenu.add(deleteItem);
         } else if (userObject instanceof DatabaseInfo) {
             JMenuItem createTableItem = new JMenuItem("Create Table");
+            JMenuItem refreshDatabase = new JMenuItem("Refresh Database");
             JMenuItem deleteItem = new JMenuItem("Delete Database");
 
             // Database Context Actions | I will require souded by Try Catch; because method using exceptions
@@ -80,6 +127,7 @@ public class DatabaseTreeManager {
                     Logger.getLogger(DatabaseTreeManager.class.getName()).log(Level.SEVERE, null, ex);
                 }
             });
+            refreshDatabase.addActionListener(e -> refreshDatabase(node));
             deleteItem.addActionListener(e -> {
                 try {
                     manageDatabase(node, "delete");
@@ -89,6 +137,7 @@ public class DatabaseTreeManager {
             });
 
             popupMenu.add(createTableItem);
+            popupMenu.add(refreshDatabase);
             popupMenu.add(deleteItem);
         }
 
@@ -217,6 +266,57 @@ public class DatabaseTreeManager {
         }
     }
 
+    private void refreshTable(DefaultMutableTreeNode node) {
+        Object userObject = node.getUserObject();
+        if (userObject instanceof String) {
+            String tableName = (String) userObject;
+            DefaultMutableTreeNode parentNode = (DefaultMutableTreeNode) node.getParent();
+
+            if (parentNode != null && parentNode.getUserObject() instanceof DatabaseInfo) {
+                DatabaseInfo dbInfo = (DatabaseInfo) parentNode.getUserObject();
+                try {
+                    currentSQLManager.getDc().getConnection().setCatalog(dbInfo.getDatabaseName());
+
+                    mainForm.displayTableData(dbInfo, tableName);
+
+                    JOptionPane.showMessageDialog(null,
+                            "Table " + tableName + " refreshed successfully.",
+                            "Success", JOptionPane.INFORMATION_MESSAGE);
+
+                } catch (SQLException ex) {
+                    JOptionPane.showMessageDialog(null,
+                            "Error refreshing table: " + ex.getMessage(),
+                            "Error", JOptionPane.ERROR_MESSAGE);
+                    Logger.getLogger(DatabaseTreeManager.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }
+    }
+
+    private void refreshDatabase(DefaultMutableTreeNode node) {
+        Object userObject = node.getUserObject();
+        if (userObject instanceof DatabaseInfo) {
+            DatabaseInfo dbInfo = (DatabaseInfo) userObject;
+            try {
+                node.removeAllChildren();
+
+                treeModel.reload(node);
+
+                loadTablesForDatabase(dbInfo, currentSQLManager);
+
+                JOptionPane.showMessageDialog(null,
+                        "Database " + dbInfo.getDatabaseName() + " refreshed successfully.",
+                        "Success", JOptionPane.INFORMATION_MESSAGE);
+
+            } catch (SQLException ex) {
+                JOptionPane.showMessageDialog(null,
+                        "Error refreshing database: " + ex.getMessage(),
+                        "Error", JOptionPane.ERROR_MESSAGE);
+                Logger.getLogger(DatabaseTreeManager.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+    }
+
     private void initializeTreeView() {
         DefaultMutableTreeNode hiddenRoot = new DefaultMutableTreeNode();
         treeModel = new DefaultTreeModel(hiddenRoot);
@@ -324,6 +424,23 @@ public class DatabaseTreeManager {
                                 "Database Error",
                                 JOptionPane.ERROR_MESSAGE);
                     }
+                } else if (node.getUserObject() instanceof String) {
+                    // Check if this is a table node
+                    DefaultMutableTreeNode parent = (DefaultMutableTreeNode) node.getParent();
+                    if (parent != null && parent.getUserObject() instanceof DatabaseInfo) {
+                        try {
+                            node.removeAllChildren();
+                            DatabaseInfo dbInfo = (DatabaseInfo) parent.getUserObject();
+                            String tableName = (String) node.getUserObject();
+                            loadColumnsForTable(dbInfo, tableName, node);
+                        } catch (SQLException ex) {
+                            Logger.getLogger(MainForm.class.getName()).log(Level.SEVERE, null, ex);
+                            JOptionPane.showMessageDialog(mainFrame,
+                                    "Error loading columns: " + ex.getMessage(),
+                                    "Database Error",
+                                    JOptionPane.ERROR_MESSAGE);
+                        }
+                    }
                 }
             }
 
@@ -375,12 +492,30 @@ public class DatabaseTreeManager {
         if (dbNode != null) {
             // Add tables to database node
             for (String tableName : tables) {
-                dbNode.add(new DefaultMutableTreeNode(tableName));
+                DefaultMutableTreeNode tableNode = new DefaultMutableTreeNode(tableName);
+//                dbNode.add(new DefaultMutableTreeNode(tableName));
+
+                tableNode.add(new DefaultMutableTreeNode("Loading..."));
+                dbNode.add(tableNode);
             }
 
             // Reload the tree model
             treeModel.reload(dbNode);
         }
+    }
+
+    private void loadColumnsForTable(DatabaseInfo dbInfo, String tableName, DefaultMutableTreeNode tableNode)
+            throws SQLException {
+        // Get column information using SQLManager
+        List<String> columns = currentSQLManager.getTableColumns(dbInfo.getDatabaseName(), tableName);
+
+        // Add column nodes to the table node
+        for (String column : columns) {
+            DefaultMutableTreeNode columnNode = new DefaultMutableTreeNode(column);
+            tableNode.add(columnNode);
+        }
+
+        treeModel.reload(tableNode);
     }
 
     private DefaultMutableTreeNode findNodeByUserObject(Object userObject) {

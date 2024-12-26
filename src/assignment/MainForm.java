@@ -9,6 +9,7 @@ import javax.swing.*;
 import javax.swing.border.*;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
+import javax.swing.tree.TreeNode;
 
 /**
  *
@@ -29,7 +30,7 @@ public class MainForm {
     private List<DatabaseConnector> connectedDatabases = new ArrayList<>();
     private DatabaseTreeManager databaseTreeManager;
     public JTextArea txtCommandArea;
-    private JButton btnExecuteQuery, btnDisconnectServer;
+    private JButton btnExecuteQuery, btnDisconnectServer, btnRefresh;
 
     public MainForm() {
 
@@ -65,7 +66,6 @@ public class MainForm {
         icoAbout = CustomComponents.scaleIcon(new ImageIcon(getClass().getResource("/icons/about.png")), 20, 20);
         icoMaximize = CustomComponents.scaleIcon(new ImageIcon(getClass().getResource("/icons/maximize.png")), 20, 20);
 
-        //  icoOpen = new ImageIcon(getClass().getResource("/icons/folder.png"));
         // File Menu
         miConnect = new JMenuItem("Connect", icoConnect);
         miDisconnect = new JMenuItem("Disconnect", icoDisconnect);
@@ -110,6 +110,8 @@ public class MainForm {
         JSeparator verticalSeparator = CustomComponents.customSeparator(SwingConstants.VERTICAL, 2, 30);
         btnExecuteQuery = CustomComponents.customToolbarButton("/icons/execute.png", "Execute", 25, 25);
         btnExecuteQuery.setEnabled(false);
+        btnRefresh = CustomComponents.customToolbarButton("/icons/refresh.png", "Refresh", 25, 25);
+        btnRefresh.setEnabled(false);
         btnDisconnectServer = CustomComponents.customToolbarButton("/icons/disconnect.png", "Disconnect Server", 25, 25);
         btnDisconnectServer.setEnabled(false);
         JSeparator verticalSeparator2 = CustomComponents.customSeparator(SwingConstants.VERTICAL, 2, 30);
@@ -118,11 +120,13 @@ public class MainForm {
         pnlToolBar.add(verticalSeparator);
         pnlToolBar.add(btnOpen);
         pnlToolBar.add(btnExecuteQuery);
+        pnlToolBar.add(btnRefresh);
         pnlToolBar.add(verticalSeparator2);
         pnlToolBar.add(btnDisconnectServer);
 
         btnNew.addActionListener(e -> openDatabaseConnectionDialog());
         btnDisconnectServer.addActionListener(e -> disconnectDatabaseServer());
+        btnRefresh.addActionListener(e -> refreshDatabasesView());
 
         this.mainFrame.add(pnlToolBar, BorderLayout.NORTH);
 
@@ -140,6 +144,7 @@ public class MainForm {
         dbServerListModel = new DefaultListModel<>();
         dbServerList = new JList<>(dbServerListModel);
         dbServerList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        dbServerList.setCellRenderer(new CustomComponents.DatabaseListCellRenderer());
 
         // Add scroll pane to explore area
         JScrollPane scrollPane = new JScrollPane(dbServerList);
@@ -160,6 +165,7 @@ public class MainForm {
 
         // Viewer or Editing Area
         pnlViewer = new JPanel(new BorderLayout());
+        pnlViewer.setBorder(new TitledBorder("Viewer Area"));
         lblViewer = new JLabel("Nothing to view here", JLabel.CENTER);
         lblViewer.setFont(lblViewer.getFont().deriveFont(15f));
         pnlViewer.add(lblViewer, BorderLayout.CENTER);
@@ -173,6 +179,7 @@ public class MainForm {
 
         // Command Area
         pnlCommandArea = new JPanel(new BorderLayout());
+        pnlCommandArea.setBorder(new TitledBorder("Command Area"));
         lblCommandArea = new JLabel("Command Area", JLabel.CENTER);
 //        lblCommandArea.setFont(lblCommandArea.getFont().deriveFont(15f));
 
@@ -210,7 +217,7 @@ public class MainForm {
     }
 
     private void openDatabaseConnectionDialog() {
-        JDialog dialog = new JDialog(mainFrame, "Connect Database", true);
+        JDialog dialog = new JDialog(mainFrame, "Connect Database Server", true);
         dialog.setSize(500, 300);
         dialog.setLocationRelativeTo(mainFrame);
         dialog.setLayout(new BorderLayout(10, 10));
@@ -412,7 +419,10 @@ public class MainForm {
             // Execute query and get results
             List<Map<String, Object>> results = sqlManager.executeQuery(sqlQuery);
 
-            if (results != null && !results.isEmpty()) {
+            // Check if the query is a SELECT statement
+            boolean isSelectQuery = sqlQuery.trim().toLowerCase().startsWith("select");
+
+            if (isSelectQuery && results != null && !results.isEmpty()) {
                 // Get column names from first row
                 String[] columnNames = results.get(0).keySet().toArray(new String[0]);
 
@@ -435,11 +445,33 @@ public class MainForm {
                 pnlViewer.revalidate();
                 pnlViewer.repaint();
             } else {
-                // Handle non-SELECT queries or empty results
+                // For non-SELECT queries or empty results
                 JOptionPane.showMessageDialog(mainFrame,
-                        "Query executed successfully. No results to display.",
+                        "Query executed successfully.",
                         "Success",
                         JOptionPane.INFORMATION_MESSAGE);
+
+                // Get currently selected node from tree view
+                DefaultMutableTreeNode selectedNode
+                        = (DefaultMutableTreeNode) databaseTreeManager.getDbTreeView().getLastSelectedPathComponent();
+
+                if (selectedNode != null) {
+                    Object userObject = selectedNode.getUserObject();
+
+                    if (userObject instanceof String) {
+                        TreeNode parentNode = selectedNode.getParent();
+                        if (parentNode instanceof DefaultMutableTreeNode) {
+                            Object parentUserObject = ((DefaultMutableTreeNode) parentNode).getUserObject();
+                            if (parentUserObject instanceof DatabaseInfo) {
+                                DatabaseInfo dbInfo = (DatabaseInfo) parentUserObject;
+                                String tableName = (String) userObject;
+                                displayTableData(dbInfo, tableName);
+                            }
+                        }
+                    }
+                }
+
+//                databaseTreeManager.updateDatabaseTreeView(sqlManager);
             }
         } catch (SQLException ex) {
             JOptionPane.showMessageDialog(mainFrame,
@@ -469,6 +501,7 @@ public class MainForm {
 
         // Enable Execute Button
         btnExecuteQuery.setEnabled(true);
+        btnRefresh.setEnabled(true);
         miExecute.setEnabled(true);
         btnDisconnectServer.setEnabled(true);
         miDisconnect.setEnabled(true);
@@ -624,6 +657,7 @@ public class MainForm {
                 // Disable Execute Button
                 btnExecuteQuery.setEnabled(false);
                 miExecute.setEnabled(false);
+                btnRefresh.setEnabled(false);
 
                 // Clear command area
                 txtCommandArea.setText("");
@@ -725,6 +759,30 @@ public class MainForm {
         } else {
             mainFrame.setExtendedState(JFrame.MAXIMIZED_BOTH);
             miMaximize.setText("Minimize");
+        }
+    }
+
+    private void refreshDatabasesView() {
+        int selectedIndex = dbServerList.getSelectedIndex();
+        if (selectedIndex == -1) {
+            JOptionPane.showMessageDialog(mainFrame,
+                    "Please select a database server to refresh",
+                    "No Server Selected",
+                    JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        try {
+            DatabaseConnector selectedConnector = connectedDatabases.get(selectedIndex);
+            SQLManager sqlManager = new SQLManager(selectedConnector);
+
+            databaseTreeManager.updateDatabaseTreeView(sqlManager);
+
+        } catch (SQLException ex) {
+            JOptionPane.showMessageDialog(mainFrame,
+                    "Error refreshing database view: " + ex.getMessage(),
+                    "Refresh Error",
+                    JOptionPane.ERROR_MESSAGE);
         }
     }
 
