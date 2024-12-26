@@ -35,6 +35,7 @@ public class DatabaseTreeManager {
 
         loadIcons();
 
+        // Rendering nodes to insert the icons
         dbTreeView.setCellRenderer(new DefaultTreeCellRenderer() {
             @Override
             public Component getTreeCellRendererComponent(JTree tree, Object value,
@@ -68,6 +69,7 @@ public class DatabaseTreeManager {
             }
         });
 
+        // Handling listener for tree view context menu
         dbTreeView.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
@@ -106,7 +108,7 @@ public class DatabaseTreeManager {
             JMenuItem renameItem = new JMenuItem("Rename Table");
             JMenuItem deleteItem = new JMenuItem("Delete Table");
 
-            // Table Context Button Actions
+            // Table Context Buttons Actions
             refreshTable.addActionListener(e -> refreshTable(node));
             renameItem.addActionListener(e -> manageTable(node, "rename"));
             deleteItem.addActionListener(e -> manageTable(node, "delete"));
@@ -143,7 +145,8 @@ public class DatabaseTreeManager {
 
         popupMenu.show(dbTreeView, x, y);
     }
-
+    
+    // Shared button to hanldle 1. Delete 2.Rename
     private void manageTable(DefaultMutableTreeNode node, String action) {
         Object userObject = node.getUserObject();
 
@@ -164,7 +167,7 @@ public class DatabaseTreeManager {
                                 "Table " + tableName + " deleted successfully.",
                                 "Success", JOptionPane.INFORMATION_MESSAGE);
 
-                        // Refresh the tree view to reflect the deletion
+                        // Refersh Tree
                         updateDatabaseTreeView(currentSQLManager);
                     } catch (SQLException ex) {
                         JOptionPane.showMessageDialog(null,
@@ -184,7 +187,7 @@ public class DatabaseTreeManager {
                                 "Table " + tableName + " renamed to " + newTableName + " successfully.",
                                 "Success", JOptionPane.INFORMATION_MESSAGE);
 
-                        // Refresh the tree view to reflect the renaming
+                        // Refresh
                         updateDatabaseTreeView(currentSQLManager);
                     } catch (SQLException ex) {
                         JOptionPane.showMessageDialog(null,
@@ -208,6 +211,7 @@ public class DatabaseTreeManager {
         }
     }
 
+    // for the database context menu 1. Delete db 2. Create table
     private void manageDatabase(DefaultMutableTreeNode node, String action) throws SQLException {
         Object userObject = node.getUserObject();
 
@@ -247,7 +251,7 @@ public class DatabaseTreeManager {
                         mainForm.txtCommandArea.requestFocus();
                         mainForm.txtCommandArea.setText(
                                 "CREATE TABLE table_name (\n"
-                                + "    column1 int AUTO_INCREMENT,\n"
+                                + "    column1 INT AUTO_INCREMENT,\n"
                                 + "    column2 datatype,\n"
                                 + "    column3 datatype,\n"
                                 + "    PRIMARY KEY (column1)\n"
@@ -266,6 +270,7 @@ public class DatabaseTreeManager {
         }
     }
 
+    // For Refresh context menu button | Table context menu
     private void refreshTable(DefaultMutableTreeNode node) {
         Object userObject = node.getUserObject();
         if (userObject instanceof String) {
@@ -293,6 +298,7 @@ public class DatabaseTreeManager {
         }
     }
 
+    // For the refresh context menu button | Database context menu
     private void refreshDatabase(DefaultMutableTreeNode node) {
         Object userObject = node.getUserObject();
         if (userObject instanceof DatabaseInfo) {
@@ -338,7 +344,7 @@ public class DatabaseTreeManager {
             }
         });
 
-        // Scroll pane for tree view
+        // Scroller
         JScrollPane scrollPane = new JScrollPane(dbTreeView);
         pnlExploreArea2.removeAll();
         pnlExploreArea2.add(scrollPane, BorderLayout.CENTER);
@@ -350,14 +356,13 @@ public class DatabaseTreeManager {
         try {
             this.currentSQLManager = sqlManager;
 
-            // Clear previous tree
+            // Reset
             DefaultMutableTreeNode root = (DefaultMutableTreeNode) treeModel.getRoot();
             root.removeAllChildren();
 
-            // Get databases for the selected server
+            // Get databases | Selected db server
             List<String> databases = sqlManager.getDatabaseList();
 
-            // Create a node for this server
             DefaultMutableTreeNode serverNode = new DefaultMutableTreeNode(
                     String.format("%s - %s:%s",
                             sqlManager.getDc().getDbServer().toUpperCase(),
@@ -366,7 +371,6 @@ public class DatabaseTreeManager {
                     )
             );
 
-            // Update Footer
             String serverInfo = String.format("%s - %s:%s",
                     sqlManager.getDc().getDbServer().toUpperCase(),
                     sqlManager.getDc().getHost(),
@@ -374,22 +378,17 @@ public class DatabaseTreeManager {
             );
             mainForm.updateFooterStatus(serverInfo, null);
 
-            // Add databases to server node
             for (String dbName : databases) {
                 DatabaseInfo dbInfo = new DatabaseInfo(sqlManager.getDc(), dbName);
-                // Create a placeholder child node to make the database node expandable
                 DefaultMutableTreeNode dbNode = new DefaultMutableTreeNode(dbInfo);
                 dbNode.add(new DefaultMutableTreeNode("Loading..."));
                 serverNode.add(dbNode);
             }
 
-            // Add server node to root
             root.add(serverNode);
 
-            // Reload the tree model
             treeModel.reload(root);
 
-            // Configure tree expansion listener
             configureTreeExpansionListener();
 
         } catch (Exception e) {
@@ -409,10 +408,9 @@ public class DatabaseTreeManager {
                 DefaultMutableTreeNode node
                         = (DefaultMutableTreeNode) event.getPath().getLastPathComponent();
 
-                // Check if the expanded node is a database node
                 if (node.getUserObject() instanceof DatabaseInfo) {
+                    // Database node found
                     try {
-                        // Remove the "Loading..." placeholder
                         node.removeAllChildren();
 
                         DatabaseInfo dbInfo = (DatabaseInfo) node.getUserObject();
@@ -425,9 +423,9 @@ public class DatabaseTreeManager {
                                 JOptionPane.ERROR_MESSAGE);
                     }
                 } else if (node.getUserObject() instanceof String) {
-                    // Check if this is a table node
                     DefaultMutableTreeNode parent = (DefaultMutableTreeNode) node.getParent();
                     if (parent != null && parent.getUserObject() instanceof DatabaseInfo) {
+                        // table node found
                         try {
                             node.removeAllChildren();
                             DatabaseInfo dbInfo = (DatabaseInfo) parent.getUserObject();
@@ -446,7 +444,6 @@ public class DatabaseTreeManager {
 
             @Override
             public void treeCollapsed(TreeExpansionEvent event) {
-                // No action needed
             }
         });
     }
@@ -455,14 +452,14 @@ public class DatabaseTreeManager {
         Object userObject = selectedNode.getUserObject();
 
         if (userObject instanceof String) {
-            // Check if the selected node is a table
             String tableName = (String) userObject;
             TreeNode parentNode = selectedNode.getParent();
             if (parentNode instanceof DefaultMutableTreeNode) {
+                // Table node found
                 Object parentUserObject = ((DefaultMutableTreeNode) parentNode).getUserObject();
                 if (parentUserObject instanceof DatabaseInfo) {
                     DatabaseInfo dbInfo = (DatabaseInfo) parentUserObject;
-                    // Update the footer with server and database info
+                    
                     String serverInfo = String.format("%s - %s:%s",
                             dbInfo.getDbConnector().getDbServer().toUpperCase(),
                             dbInfo.getDbConnector().getHost(),
@@ -473,7 +470,6 @@ public class DatabaseTreeManager {
                 }
             }
         } else if (userObject instanceof DatabaseInfo) {
-            // Handle when a database node is selected
             DatabaseInfo dbInfo = (DatabaseInfo) userObject;
             String serverInfo = String.format("%s - %s:%s",
                     dbInfo.getDbConnector().getDbServer().toUpperCase(),
@@ -499,17 +495,14 @@ public class DatabaseTreeManager {
                 dbNode.add(tableNode);
             }
 
-            // Reload the tree model
             treeModel.reload(dbNode);
         }
     }
 
     private void loadColumnsForTable(DatabaseInfo dbInfo, String tableName, DefaultMutableTreeNode tableNode)
             throws SQLException {
-        // Get column information using SQLManager
         List<String> columns = currentSQLManager.getTableColumns(dbInfo.getDatabaseName(), tableName);
 
-        // Add column nodes to the table node
         for (String column : columns) {
             DefaultMutableTreeNode columnNode = new DefaultMutableTreeNode(column);
             tableNode.add(columnNode);
@@ -545,7 +538,7 @@ public class DatabaseTreeManager {
 
 }
 
-// Helper class to store database information
+// To store the database data
 class DatabaseInfo {
 
     private final DatabaseConnector dbConnector;

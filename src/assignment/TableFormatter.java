@@ -20,7 +20,6 @@ public class TableFormatter {
     private static final Font CELL_FONT = new Font("Noto Sans Sinhala", Font.PLAIN, 12);
 
     public static JTable formatTable(JTable table) {
-        // Basic table properties
         table.setShowGrid(true);
         table.setGridColor(new Color(220, 220, 220));
         table.setRowHeight(25);
@@ -28,10 +27,9 @@ public class TableFormatter {
         table.setFillsViewportHeight(true);
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         
-        // Enable sorting
         table.setAutoCreateRowSorter(true);
 
-        // Custom header
+        // Headers
         JTableHeader header = table.getTableHeader();
         header.setDefaultRenderer(new DefaultTableCellRenderer() {
             @Override
@@ -54,7 +52,7 @@ public class TableFormatter {
         header.setResizingAllowed(true);
         header.setReorderingAllowed(false);
 
-        // Custom cell 
+        // Custom cell formatting
         DefaultTableCellRenderer cellRenderer = new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable table, Object value,
@@ -80,7 +78,7 @@ public class TableFormatter {
                 if (value != null) {
                     if (value instanceof Number) {
                         label.setHorizontalAlignment(SwingConstants.RIGHT);
-                        // Format numbers
+                        // Format numbers if contains
                         if (value instanceof Double || value instanceof Float) {
                             label.setText(String.format("%.2f", value));
                         }
@@ -95,7 +93,7 @@ public class TableFormatter {
             }
         };
 
-        // Apply format
+        // Apply format to the table
         for (int i = 0; i < table.getColumnCount(); i++) {
             table.getColumnModel().getColumn(i).setCellRenderer(cellRenderer);
             

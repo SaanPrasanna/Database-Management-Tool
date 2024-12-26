@@ -95,14 +95,12 @@ public class SQLManager {
             // System.out.println("First Word: " + firstWord);
 
             if (firstWord.equals("SELECT") || firstWord.equals("SHOW") || firstWord.equals("DESCRIBE")) {
-                // return dataset, prepare result set 
                 this.resultset = this.stmt.executeQuery(this.query);
                 this.executed = 1;
                 convertResultSetToJTable();
             }
 
             if (firstWord.equals("INSERT") || firstWord.equals("UPDATE") || firstWord.equals("DELETE")) {
-                // return true or false;
                 this.executed = this.stmt.executeUpdate(this.query);
             }
 
@@ -127,6 +125,7 @@ public class SQLManager {
         this.dataTable.setModel(tableModel);
     }
 
+    // Get Databases
     public List<String> getDatabaseList() throws SQLException {
         List<String> databases = new ArrayList<>();
         Connection conn = null;
@@ -136,7 +135,6 @@ public class SQLManager {
             conn = dc.getConnection();
             DatabaseMetaData metaData = conn.getMetaData();
 
-            // Get database names based on database type
             switch (dc.getDbServer().toLowerCase()) {
                 case "mysql":
                     rs = conn.createStatement().executeQuery("SHOW DATABASES");
@@ -171,6 +169,7 @@ public class SQLManager {
         return databases;
     }
 
+    // Get Tables
     public List<String> getTables(String databaseName) throws SQLException {
         List<String> tables = new ArrayList<>();
         Connection conn = null;
@@ -185,7 +184,6 @@ public class SQLManager {
 
             DatabaseMetaData metaData = conn.getMetaData();
 
-            // Get tables based on database type
             switch (dc.getDbServer().toLowerCase()) {
                 case "mysql":
                     rs = metaData.getTables(databaseName, null, "%", new String[]{"TABLE"});
@@ -215,7 +213,7 @@ public class SQLManager {
         return tables;
     }
 
-    // Optional: Method to get table columns
+    // Get Table Columns
     public List<String> getTableColumns(String databaseName, String tableName) throws SQLException {
         List<String> columns = new ArrayList<>();
         Connection conn = null;
@@ -244,6 +242,7 @@ public class SQLManager {
         return columns;
     }
 
+    // Get table data - Retrieve the data
     public List<Map<String, Object>> getTableData(String databaseName, String tableName) throws SQLException {
         List<Map<String, Object>> tableData = new ArrayList<>();
         Connection conn = null;
@@ -278,21 +277,23 @@ public class SQLManager {
         return tableData;
     }
 
+    // Execute Query then main form button pressed
     public List<Map<String, Object>> executeQuery(String query) throws SQLException {
         System.out.println("Starting executeQuery method...");
 
         List<Map<String, Object>> results = new ArrayList<>();
         System.out.println("Query to be executed: " + query);
 
-        Connection conn = this.dc.getConnection(); // Reuse the existing connection
+        Connection conn = this.dc.getConnection();
         if (conn == null || conn.isClosed()) {
             throw new SQLException("Cannot execute query: connection is closed or not available.");
         }
 
         try (Statement stmt = conn.createStatement()) {
-            boolean hasResultSet = stmt.execute(query); // Determines if the query returns a result set
+            boolean hasResultSet = stmt.execute(query);
 
             if (hasResultSet) {
+                // for SELECT queries
                 try (ResultSet rs = stmt.getResultSet()) {
                     System.out.println("Database connection is active.");
                     ResultSetMetaData metaData = rs.getMetaData();
@@ -311,7 +312,7 @@ public class SQLManager {
                     System.out.println("Query executed successfully. Rows fetched: " + results.size());
                 }
             } else {
-                // Handle non-SELECT queries
+                // non-SELECT queries
                 int updateCount = stmt.getUpdateCount();
                 System.out.println("Query executed successfully. Rows affected: " + updateCount);
             }
@@ -324,15 +325,14 @@ public class SQLManager {
         return results;
     }
 
+    // Combined function to Delete and Rename the table
     public void manageTable(String tableName, String newTableName, String action) throws SQLException {
         try (Statement stmt = dc.getConnection().createStatement()) {
             if ("delete".equalsIgnoreCase(action)) {
-                // Delete table
                 String query = "DROP TABLE " + tableName;
                 stmt.executeUpdate(query);
                 System.out.println("Table " + tableName + " deleted successfully.");
             } else if ("rename".equalsIgnoreCase(action)) {
-                // Rename table
                 if (newTableName == null || newTableName.isEmpty()) {
                     throw new IllegalArgumentException("New table name must be provided for renaming.");
                 }
@@ -343,7 +343,7 @@ public class SQLManager {
                 throw new IllegalArgumentException("Invalid action. Please specify 'rename' or 'delete'.");
             }
         } catch (SQLException e) {
-            throw e;  // Re-throw the exception to be handled by the caller
+            throw e; 
         }
     }
 

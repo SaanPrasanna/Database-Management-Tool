@@ -33,7 +33,6 @@ public class DatabaseConnector {
     }
 
     private void loadDriver() throws ClassNotFoundException {
-        // Load the appropriate driver based on the database type (dbServer)
         switch (this.dbServer.toLowerCase()) {
             case "mysql":
                 Class.forName("com.mysql.cj.jdbc.Driver");

@@ -42,7 +42,7 @@ public class MainForm {
         this.mainFrame.setTitle("Database Management Tool | Assignment 04 - SOF/20/B1/03");
         this.mainFrame.setSize(1000, 700);
         this.mainFrame.setLocationRelativeTo(null);
-//        this.mainFrame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+        this.mainFrame.setExtendedState(JFrame.MAXIMIZED_BOTH);
         this.mainFrame.setLayout(new BorderLayout());
 
         // Menu Bar
@@ -78,7 +78,7 @@ public class MainForm {
         menuFile.add(miExit);
 
         // View Menu
-        miMaximize = new JMenuItem("Maximize", icoMaximize);
+        miMaximize = new JMenuItem("Minimize", icoMaximize);
         menuView.add(miMaximize);
 
         // Query Menu
@@ -287,7 +287,7 @@ public class MainForm {
         String defaultPort = dbPorts.get(selectedDbType);
         txtPort.setText((defaultPort != null) ? defaultPort : "");
 
-        // Action listeners for Buttons
+        // Action listeners for Connect, Test, Cancel Buttons
         btnConnect.addActionListener(e -> {
             String host = txtHost.getText();
             String dbName = txtDBName.getText();
@@ -310,14 +310,10 @@ public class MainForm {
                 }
 
                 try {
-                    // Create DatabaseConnector
                     DatabaseConnector dbConnector = new DatabaseConnector(dbType, host, port, dbName, username, password);
 
                     if (dbConnector.testConnection()) {
-                        // Create SQLManager with the new DatabaseConnector
                         SQLManager sqlManager = new SQLManager(dbConnector);
-
-                        // Add to connected databases list
                         addConnectedDatabase(dbConnector);
 
                         JOptionPane.showMessageDialog(dialog, "Connection Successful!", "Success", JOptionPane.INFORMATION_MESSAGE);
@@ -336,7 +332,6 @@ public class MainForm {
             dialog.dispose();
         });
 
-        // Test the connection
         btnTest.addActionListener(e -> {
             String host = txtHost.getText();
             String dbName = txtDBName.getText();
@@ -416,17 +411,12 @@ public class MainForm {
             DatabaseConnector connector = connectedDatabases.get(selectedIndex);
             SQLManager sqlManager = new SQLManager(connector);
 
-            // Execute query and get results
             List<Map<String, Object>> results = sqlManager.executeQuery(sqlQuery);
 
-            // Check if the query is a SELECT statement
             boolean isSelectQuery = sqlQuery.trim().toLowerCase().startsWith("select");
 
             if (isSelectQuery && results != null && !results.isEmpty()) {
-                // Get column names from first row
                 String[] columnNames = results.get(0).keySet().toArray(new String[0]);
-
-                // Create data array for JTable
                 Object[][] data = new Object[results.size()][columnNames.length];
                 for (int i = 0; i < results.size(); i++) {
                     Map<String, Object> row = results.get(i);
@@ -435,23 +425,20 @@ public class MainForm {
                     }
                 }
 
-                // Create and display table
+                // Create a Table 
                 JTable resultTable = new JTable(data, columnNames);
                 JScrollPane scrollPane = new JScrollPane(resultTable);
 
-                // Update viewer panel
                 pnlViewer.removeAll();
                 pnlViewer.add(scrollPane, BorderLayout.CENTER);
                 pnlViewer.revalidate();
                 pnlViewer.repaint();
             } else {
-                // For non-SELECT queries or empty results
                 JOptionPane.showMessageDialog(mainFrame,
                         "Query executed successfully.",
                         "Success",
                         JOptionPane.INFORMATION_MESSAGE);
 
-                // Get currently selected node from tree view
                 DefaultMutableTreeNode selectedNode
                         = (DefaultMutableTreeNode) databaseTreeManager.getDbTreeView().getLastSelectedPathComponent();
 
@@ -486,34 +473,29 @@ public class MainForm {
             this.connectedDatabases = new ArrayList<>();
         }
 
-        // Create a descriptive server name
         String serverName = String.format("%s - %s:%s",
                 dbConnector.getDbServer().toUpperCase(),
                 dbConnector.getHost(),
                 dbConnector.getPort()
         );
 
-        // Add to list model
         dbServerListModel.addElement(serverName);
 
-        // Add to connected databases list
         connectedDatabases.add(dbConnector);
 
-        // Enable Execute Button
+        // Enable Button
         btnExecuteQuery.setEnabled(true);
         btnRefresh.setEnabled(true);
         miExecute.setEnabled(true);
         btnDisconnectServer.setEnabled(true);
         miDisconnect.setEnabled(true);
 
-        // Optional: Add list selection listener
         dbServerList.addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
                 int selectedIndex = dbServerList.getSelectedIndex();
                 if (selectedIndex != -1) {
                     DatabaseConnector selected = connectedDatabases.get(selectedIndex);
                     try {
-                        // Create a new SQLManager for the selected database connector
                         SQLManager selectedSqlManager = new SQLManager(selected);
                         databaseTreeManager.updateDatabaseTreeView(selectedSqlManager);
                     } catch (SQLException ex) {
@@ -530,12 +512,11 @@ public class MainForm {
 
     public void displayTableData(DatabaseInfo dbInfo, String tableName) {
         try {
-            // Fetch table data
+            // Fetching the table data
             SQLManager sqlManager = new SQLManager(dbInfo.getDbConnector());
-            String databaseName = dbInfo.getDatabaseName(); // Database Name
+            String databaseName = dbInfo.getDatabaseName();
             List<Map<String, Object>> tableData = sqlManager.getTableData(databaseName, tableName);
 
-            // Create table model
             List<String> columnNamesList = sqlManager.getTableColumns(databaseName, tableName);
             String[] columnNames = columnNamesList.toArray(new String[0]);
 
@@ -547,28 +528,24 @@ public class MainForm {
                 }
             }
 
-            // Display in JTable
+            // Display table
             JTable table = new JTable(rowData, columnNames);
             table = TableFormatter.formatTable(table);
 
-            // Create Scroller
             JScrollPane scrollPane = new JScrollPane(table);
             scrollPane.setBorder(BorderFactory.createEmptyBorder());
             scrollPane.getViewport().setBackground(Color.WHITE);
 
-            // Add a title panel above the table
             JPanel titlePanel = new JPanel(new BorderLayout());
             titlePanel.setBackground(Color.WHITE);
             JLabel titleLabel = new JLabel(" Table: " + tableName);
             titleLabel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
             titlePanel.add(titleLabel, BorderLayout.WEST);
 
-            // Create main panel to hold title and table
             JPanel mainPanel = new JPanel(new BorderLayout());
             mainPanel.add(titlePanel, BorderLayout.NORTH);
             mainPanel.add(scrollPane, BorderLayout.CENTER);
 
-            // Update viewer panel
             pnlViewer.removeAll();
             pnlViewer.add(scrollPane, BorderLayout.CENTER);
             pnlViewer.revalidate();
@@ -605,7 +582,6 @@ public class MainForm {
     }
 
     private void disconnectDatabaseServer() {
-        // Get selected server index
         int selectedIndex = dbServerList.getSelectedIndex();
         if (selectedIndex == -1) {
             JOptionPane.showMessageDialog(mainFrame,
@@ -615,14 +591,12 @@ public class MainForm {
             return;
         }
 
-        // Get the selected database connector
         DatabaseConnector selectedConnector = connectedDatabases.get(selectedIndex);
         String serverInfo = String.format("%s - %s:%s",
                 selectedConnector.getDbServer().toUpperCase(),
                 selectedConnector.getHost(),
                 selectedConnector.getPort());
 
-        // Confirm disconnection
         int confirm = JOptionPane.showConfirmDialog(mainFrame,
                 "Are you sure you want to disconnect from:\n" + serverInfo + "?",
                 "Confirm Disconnection",
@@ -631,38 +605,32 @@ public class MainForm {
 
         if (confirm == JOptionPane.YES_OPTION) {
             try {
-                // Close the database connection
+                // Closing database connection
                 if (selectedConnector.getConnection() != null && !selectedConnector.getConnection().isClosed()) {
                     selectedConnector.getConnection().close();
                 }
 
-                // Remove from lists
+                // Reset components to initial state
                 connectedDatabases.remove(selectedIndex);
                 dbServerListModel.remove(selectedIndex);
 
-                // Clear tree view
                 DefaultMutableTreeNode root = (DefaultMutableTreeNode) databaseTreeManager.getDbTreeView().getModel().getRoot();
                 root.removeAllChildren();
                 ((DefaultTreeModel) databaseTreeManager.getDbTreeView().getModel()).reload();
 
-                // Clear viewer panel
                 pnlViewer.removeAll();
                 pnlViewer.add(lblViewer, BorderLayout.CENTER);
                 pnlViewer.revalidate();
                 pnlViewer.repaint();
 
-                // Reset footer
                 lblFooter.setText("No database selected");
 
-                // Disable Execute Button
                 btnExecuteQuery.setEnabled(false);
                 miExecute.setEnabled(false);
                 btnRefresh.setEnabled(false);
 
-                // Clear command area
                 txtCommandArea.setText("");
 
-                // Disable execute button if no more connections
                 if (dbServerListModel.isEmpty()) {
                     miExecute.setEnabled(false);
                     for (Component comp : pnlToolBar.getComponents()) {
@@ -696,7 +664,7 @@ public class MainForm {
         );
 
         if (confirm == JOptionPane.YES_OPTION) {
-            System.exit(0); // Terminate the program
+            System.exit(0);
         }
     }
 
@@ -710,27 +678,22 @@ public class MainForm {
         contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
         contentPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-        // Application title
         JLabel titleLabel = new JLabel("Database Management Tool");
         titleLabel.setFont(new Font("SansSerif", Font.BOLD, 18));
         titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        // Version
         JLabel versionLabel = new JLabel("Assignment 04");
         versionLabel.setFont(new Font("SansSerif", Font.PLAIN, 14));
         versionLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        // Developer info
         JLabel developerLabel = new JLabel("Developed by: M. M. S. P. Mapa");
         developerLabel.setFont(new Font("SansSerif", Font.PLAIN, 14));
         developerLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        // Student ID
         JLabel studentIdLabel = new JLabel("Student ID: SOF/20/B1/03");
         studentIdLabel.setFont(new Font("SansSerif", Font.PLAIN, 14));
         studentIdLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        // Add components with spacing
         contentPanel.add(titleLabel);
         contentPanel.add(Box.createRigidArea(new Dimension(0, 10)));
         contentPanel.add(versionLabel);
@@ -740,7 +703,6 @@ public class MainForm {
         contentPanel.add(studentIdLabel);
         contentPanel.add(Box.createRigidArea(new Dimension(0, 20)));
 
-        // OK button
         JButton okButton = new JButton("OK");
         okButton.addActionListener(e -> aboutDialog.dispose());
         JPanel buttonPanel = new JPanel();
@@ -751,8 +713,8 @@ public class MainForm {
         aboutDialog.setVisible(true);
     }
 
+    // Toggle Window State
     private void setMaximize() {
-        // Toggle between maximized and normal state
         if ((mainFrame.getExtendedState() & JFrame.MAXIMIZED_BOTH) == JFrame.MAXIMIZED_BOTH) {
             mainFrame.setExtendedState(JFrame.NORMAL);
             miMaximize.setText("Maximize");
@@ -786,6 +748,7 @@ public class MainForm {
         }
     }
 
+    // Main Method
     public static void main(String[] args) {
         new MainForm();
     }
