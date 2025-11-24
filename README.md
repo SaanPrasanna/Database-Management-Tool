@@ -104,7 +104,5 @@ To run this project, you must have the following JDBC drivers added to your clas
 
 ## 📜 License
 
-This project is for academic assignment purposes.
+This project is under MIT License.
 
----
-*Generated based on source code analysis.*
